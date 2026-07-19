@@ -926,14 +926,20 @@ class ResultIterator(object):
         return self
 
     def __next__(self):
-        m = self.parser._search_re.search(self.string, self.pos, self.endpos)
-        if m is None:
-            raise StopIteration()
-        self.pos = m.end()
-
-        if self.evaluate_result:
-            return self.parser.evaluate_result(m)
-        else:
+        # Zero-width matches (e.g. optional {:tt}) must advance past endpos or hang.
+        while True:
+            m = self.parser._search_re.search(self.string, self.pos, self.endpos)
+            if m is None:
+                raise StopIteration()
+            start, end = m.start(), m.end()
+            if start == end:
+                if start >= self.endpos:
+                    raise StopIteration()
+                self.pos = end + 1
+                continue
+            self.pos = end
+            if self.evaluate_result:
+                return self.parser.evaluate_result(m)
             return Match(self.parser, m)
 
     # pre-py3k compat
